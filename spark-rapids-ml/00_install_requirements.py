@@ -45,7 +45,7 @@
   "cuvs-cu12==25.10.*" 
 
 !pip install -r spark-rapids-ml/requirements.txt
-
-!wget https://raw.githubusercontent.com/apache/spark/refs/heads/master/examples/src/main/scripts/getGpusResources.sh
-!chmod +x getGpusResources.sh
-!wget https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/25.10.0/rapids-4-spark_2.12-25.10.0.jar 
+print("add this environment variable to your Project Settings -> Advanced[Environment Variables]: export SPARK_DIST_CLASSPATH: /home/cdsw/rapids-4-spark_2.12-25.10.0.jar")
+!wget https://raw.githubusercontent.com/apache/spark/refs/heads/master/examples/src/main/scripts/getGpusResources.sh  --output-document=/home/cdsw/spark-rapids-ml/getGpusResources.sh
+!chmod +x /home/cdsw/spark-rapids-ml/getGpusResources.sh
+!wget https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/25.10.0/rapids-4-spark_2.12-25.10.0.jar  --output-document=/home/cdsw/rapids-4-spark_2.12-25.10.0.jar

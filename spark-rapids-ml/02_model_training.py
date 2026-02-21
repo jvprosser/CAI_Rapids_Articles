@@ -43,7 +43,7 @@ spark = SparkSession.builder \
     .config("spark.driver.memory", "12g") \
     .config("spark.driver.maxResultSize", "4g") \
     .config("spark.dynamicAllocation.enabled", "false") \
-    .config("spark.executor.cores", 3) \
+    .config("spark.executor.cores", 4) \
     .config("spark.executor.instances", 1) \
     .config("spark.executor.memory", "10g") \
     .config("spark.executor.memoryOverhead", "10g") \
@@ -53,7 +53,7 @@ spark = SparkSession.builder \
     .config("spark.sql.broadcastTimeout", "1200") \
     .config("spark.rapids.memory.pinnedPool.size", "4g") \
     .config("spark.executor.resource.gpu.amount", 1) \
-    .config("spark.task.resource.gpu.amount", 0.33) \
+    .config("spark.task.resource.gpu.amount", 0.250) \
     .config("spark.jars", RAPIDS_JAR) \
     .config("spark.kerberos.access.hadoopFileSystems", "s3a://go01-demo/user/jprosser/spark-rapids-ml/") \
     .config("spark.plugins", "com.nvidia.spark.SQLPlugin") \
@@ -165,15 +165,44 @@ def truncate_to_binary(obj, *args, **kwargs):
 # Inject the fix
 np.array = truncate_to_binary
 
-print("Moving cleaned model back to CPU...")
-rf_model_cpu = rf_model.cpu()
-spark.conf.set("spark.rapids.sql.explain", "NONE")
+#pip uninstall onnxruntime
+#pip install onnxruntime-gpu
+
+import onnxmltools
+from onnxconverter_common.data_types import FloatTensorType
+
+# This logic is exactly the same whether you target a GPU or CPU
+initial_type = [('float_input', FloatTensorType([None, 10]))]
 onnx_model = onnxmltools.convert_sparkml(
-        rf_model_cpu, 
-        initial_types=[("features", FloatTensorType([None, 14]))],
-        spark_session=spark 
-    )
-onnxmltools.utils.save_model(onnx_model, "fraud_model_final.onnx")
+  rf_model, 
+  initial_types=initial_type,
+  spark_session=spark
+)
+
+with open("model.onnx", "wb") as f:
+    f.read(onnx_model.SerializeToString())
+
+# --- STEP 2: INFERENCE (GPU) ---
+import onnxruntime as rt
+
+# This is where the "GPU-ness" happens
+# Requires onnxruntime-gpu to be installed
+session = rt.InferenceSession(
+      "model.onnx", 
+       providers=['CUDAExecutionProvider']
+   )
+
+
+
+#print("Moving cleaned model back to CPU...")
+#rf_model_cpu = rf_model.cpu()
+#spark.conf.set("spark.rapids.sql.explain", "NONE")
+#onnx_model = onnxmltools.convert_sparkml(
+#        rf_model_cpu, 
+#        initial_types=[("features", FloatTensorType([None, 14]))],
+#        spark_session=spark 
+#    )
+#onnxmltools.utils.save_model(onnx_model, "fraud_model_final.onnx")
 print("✨ SUCCESS!")
 
 # Save model to Registry
